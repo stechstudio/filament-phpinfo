@@ -1,0 +1,32 @@
+{
+    "name": "stechstudio/filament-phpinfo",
+    "description": "View phpinfo from your Filament admin panel.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "STS\\FilamentPHPInfo\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Elias Szobody",
+            "email": "elias@reproconnect.com"
+        },
+        {
+            "name": "David Palmer",
+            "email": "dp@reproconnect.com"
+        }
+    ],
+    "require": {
+        "filament/filament": "^3.0",
+        "stechstudio/phpinfo": "^0.2.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "STS\\FilamentPHPInfo\\FilamentPHPInfoServiceProvider"
+            ]
+        }
+    }
+}
