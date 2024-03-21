@@ -20,7 +20,7 @@
     ],
     "require": {
         "filament/filament": "^3.0",
-        "stechstudio/phpinfo": "^0.2.0"
+        "stechstudio/phpinfo": "^0.3.0"
     },
     "extra": {
         "laravel": {
