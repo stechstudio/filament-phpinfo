@@ -8,7 +8,7 @@ This package adds a new page to the Filament admin panel that displays the outpu
 
 | Version | PHP | Laravel | Filament |
 |---------|-----|---------|----------|
-| 1.2     | 8.3+ | 11, 12 | 3, 4, 5 |
+| 1.2     | 8.3+ | 11, 12, 13 | 3, 4, 5 |
 
 ## Installation
 ```bash
