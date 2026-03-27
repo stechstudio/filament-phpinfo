@@ -19,8 +19,10 @@
         }
     ],
     "require": {
-        "filament/filament": "^3.0",
-        "stechstudio/phpinfo": "^0.4.0"
+        "php": "^8.3",
+        "filament/filament": "^3.0|^4.0|^5.0",
+        "spatie/laravel-package-tools": "^1.9",
+        "stechstudio/phpinfo": "^0.6|^1.0"
     },
     "extra": {
         "laravel": {

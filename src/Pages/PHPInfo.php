@@ -13,7 +13,7 @@ class PHPInfo extends Page
 
     protected static ?string $navigationLabel = 'PHPInfo';
 
-    protected InfoWrapper\Result $info;
+    protected mixed $info;
 
     public function getViewData(): array
     {
@@ -22,7 +22,7 @@ class PHPInfo extends Page
         ];
     }
 
-    protected function getInfo(): InfoWrapper\Result
+    protected function getInfo(): mixed
     {
         return $this->info ??= InfoWrapper\Info::capture();
     }
