@@ -34,4 +34,14 @@ class PHPInfo extends Page
     {
         return config('filament-phpinfo.page-slug', 'phpinfo');
     }
+
+    public static function getNavigationIcon(): ?string
+    {
+        return config('filament-phpinfo.navigation-icon', 'heroicon-o-information-circle');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return config('filament-phpinfo.navigation-group');
+    }
 }

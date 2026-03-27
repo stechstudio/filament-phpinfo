@@ -17,9 +17,4 @@ class FilamentPHPInfoServiceProvider extends PackageServiceProvider
             ->hasConfigFile();
     }
 
-    public function packageBooted(): void
-    {
-        Pages\PHPInfo::navigationGroup(config('filament-phpinfo.navigation-group'));
-        Pages\PHPInfo::navigationIcon(config('filament-phpinfo.navigation-icon', 'heroicon-o-information-circle'));
-    }
 }

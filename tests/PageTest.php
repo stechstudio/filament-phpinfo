@@ -19,6 +19,16 @@ it('respects custom slug from config', function () {
     expect(PHPInfo::getDefaultSlug())->toBe('custom-phpinfo');
 });
 
+it('respects custom navigation icon from config', function () {
+    config()->set('filament-phpinfo.navigation-icon', 'heroicon-o-cog');
+    expect(PHPInfo::getNavigationIcon())->toBe('heroicon-o-cog');
+});
+
+it('respects custom navigation group from config', function () {
+    config()->set('filament-phpinfo.navigation-group', 'Custom Group');
+    expect(PHPInfo::getNavigationGroup())->toBe('Custom Group');
+});
+
 it('returns the correct view', function () {
     $page = new class extends PHPInfo {
         public function exposeGetView(): string
