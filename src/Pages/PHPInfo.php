@@ -2,14 +2,17 @@
 
 namespace STS\FilamentPHPInfo\Pages;
 
+use BackedEnum;
 use Filament\Pages\Page;
+use Illuminate\Contracts\Support\Htmlable;
 use STS\Phpinfo as InfoWrapper;
+use UnitEnum;
 
 class PHPInfo extends Page
 {
     protected static ?string $title = 'PHPInfo';
 
-    protected static string $view = 'filament-phpinfo::phpinfo';
+    protected string $view = 'filament-phpinfo::phpinfo';
 
     protected static ?string $navigationLabel = 'PHPInfo';
 
@@ -27,17 +30,17 @@ class PHPInfo extends Page
         return $this->info ??= InfoWrapper\Info::capture();
     }
 
-    public static function getSlug(): string
+    public static function getDefaultSlug(): string
     {
         return config('filament-phpinfo.page-slug', 'phpinfo');
     }
 
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
         return config('filament-phpinfo.navigation-group');
     }
 
-    public static function getNavigationIcon(): ?string
+    public static function getNavigationIcon(): string|BackedEnum|Htmlable|null
     {
         return config('filament-phpinfo.navigation-icon', 'heroicon-o-information-circle');
     }
