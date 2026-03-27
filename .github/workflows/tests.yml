@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - 'phpunit.xml.dist'
+      - '.github/workflows/tests.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - 'phpunit.xml.dist'
+      - '.github/workflows/tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: ['8.3', '8.4']
+        filament: ['^3.0', '^4.0', '^5.0']
+        include:
+          - filament: '^3.0'
+            laravel: '11.*'
+            testbench: '9.*'
+          - filament: '^4.0'
+            laravel: '12.*'
+            testbench: '10.*'
+          - filament: '^5.0'
+            laravel: '12.*'
+            testbench: '10.*'
+
+    name: PHP ${{ matrix.php }} - Filament ${{ matrix.filament }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require "filament/filament:${{ matrix.filament }}" "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Run tests
+        run: vendor/bin/pest --ci
