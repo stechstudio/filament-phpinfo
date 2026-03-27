@@ -24,6 +24,24 @@
         "spatie/laravel-package-tools": "^1.9",
         "stechstudio/phpinfo": "^0.6|^1.0"
     },
+    "autoload-dev": {
+        "psr-4": {
+            "STS\\FilamentPHPInfo\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+        "pestphp/pest": "^2.0|^3.0",
+        "pestphp/pest-plugin-laravel": "^2.0|^3.0"
+    },
+    "scripts": {
+        "test": "vendor/bin/pest"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [
