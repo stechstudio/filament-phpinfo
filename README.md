@@ -1,5 +1,14 @@
 # PHPInfo for Filament
+
+![Tests](https://github.com/stechstudio/filament-phpinfo/actions/workflows/tests.yml/badge.svg)
+
 This package adds a new page to the Filament admin panel that displays the output of `phpinfo()` in a nicely formatted way.
+
+## Compatibility
+
+| Version | PHP | Laravel | Filament |
+|---------|-----|---------|----------|
+| 1.2     | 8.3+ | 11, 12 | 3, 4, 5 |
 
 ## Installation
 ```bash
