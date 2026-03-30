@@ -16,4 +16,5 @@ class FilamentPHPInfoServiceProvider extends PackageServiceProvider
             ->hasViews()
             ->hasConfigFile();
     }
+
 }

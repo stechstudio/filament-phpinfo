@@ -9,11 +9,14 @@ class PHPInfo extends Page
 {
     protected static ?string $title = 'PHPInfo';
 
-    protected static string $view = 'filament-phpinfo::phpinfo';
-
     protected static ?string $navigationLabel = 'PHPInfo';
 
-    protected InfoWrapper\Result $info;
+    protected mixed $info;
+
+    public function getView(): string
+    {
+        return 'filament-phpinfo::phpinfo';
+    }
 
     public function getViewData(): array
     {
@@ -22,23 +25,23 @@ class PHPInfo extends Page
         ];
     }
 
-    protected function getInfo(): InfoWrapper\Result
+    protected function getInfo(): mixed
     {
         return $this->info ??= InfoWrapper\Info::capture();
     }
 
-    public static function getSlug(): string
+    public static function getDefaultSlug(): string
     {
         return config('filament-phpinfo.page-slug', 'phpinfo');
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return config('filament-phpinfo.navigation-group');
     }
 
     public static function getNavigationIcon(): ?string
     {
         return config('filament-phpinfo.navigation-icon', 'heroicon-o-information-circle');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return config('filament-phpinfo.navigation-group');
     }
 }
