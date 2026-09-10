@@ -70,6 +70,12 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Laravel 11 is past its security-support window, so Composer refuses to load any
+          # 11.x release. This leg checks that the package still works on Laravel 11, not that
+          # Laravel 11 is patched, so let the resolver see it.
+          if [[ "${{ matrix.laravel }}" == "11.*" ]]; then
+            composer config --no-plugins policy.advisories.block false
+          fi
           composer require "filament/filament:${{ matrix.filament }}" "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
           if [[ "${{ matrix.laravel }}" != "13.*" ]]; then
             composer require "pestphp/pest-plugin-laravel:^3.0" --no-interaction --no-update
