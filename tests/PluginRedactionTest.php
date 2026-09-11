@@ -2,22 +2,26 @@
 
 use STS\FilamentPHPInfo\FilamentPHPInfoPlugin;
 
-it('configures the redactor fluently', function () {
-    $redactor = FilamentPHPInfoPlugin::make()
+it('hands what the panel configures to the redactor', function () {
+    $info = FilamentPHPInfoPlugin::make()
         ->redact('SESSION_FINGERPRINT')
-        ->redactContaining('tenant')
-        ->reveal('AWS_ACCESS_KEY_ID')
+        ->reveal('STRIPE_KEY')
         ->placeholder('***')
-        ->redactor();
+        ->getRedactor()
+        ->apply(fixture(['Environment' => [
+            'SESSION_FINGERPRINT' => 'abc',
+            'STRIPE_KEY' => 'pk_test_1',
+            'APP_KEY' => 'base64:abc',
+        ]]));
 
-    expect($redactor->apply('Core', 'SESSION_FINGERPRINT', 'x'))->toBe('***')
-        ->and($redactor->apply('Environment', 'TENANT_ID', 'x'))->toBe('***')
-        ->and($redactor->apply('Environment', 'APP_KEY', 'x'))->toBe('***')
-        ->and($redactor->apply('Environment', 'AWS_ACCESS_KEY_ID', 'AKIA1'))->toBe('AKIA1');
+    expect(valueOf($info, 'SESSION_FINGERPRINT'))->toBe('***')
+        ->and(valueOf($info, 'STRIPE_KEY'))->toBe('pk_test_1')
+        ->and(valueOf($info, 'APP_KEY'))->toBe('***');
 });
 
-it('turns redaction off fluently', function () {
-    $redactor = FilamentPHPInfoPlugin::make()->withoutRedaction()->redactor();
+it('turns redaction off', function () {
+    $info = FilamentPHPInfoPlugin::make()->withoutRedaction()->getRedactor()
+        ->apply(fixture(['Environment' => ['APP_KEY' => 'base64:abc']]));
 
-    expect($redactor->apply('Environment', 'APP_KEY', 'x'))->toBe('x');
+    expect(valueOf($info, 'APP_KEY'))->toBe('base64:abc');
 });

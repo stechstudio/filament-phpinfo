@@ -39,10 +39,14 @@ it('returns the correct view', function () {
     expect($page->exposeGetView())->toBe('filament-phpinfo::phpinfo');
 });
 
-it('hands the view a capture and a redactor', function () {
-    $data = (new PHPInfo)->getViewData();
+it('hands the view a capture that is already redacted', function () {
+    $page = new class extends PHPInfo
+    {
+        protected function getInfo(): mixed
+        {
+            return fixture(['Environment' => ['APP_KEY' => 'base64:abc']]);
+        }
+    };
 
-    expect($data)->toHaveKeys(['info', 'redactor'])
-        ->and($data['redactor'])->toBeInstanceOf(STS\FilamentPHPInfo\Redactor::class)
-        ->and($data['redactor']->apply('Environment', 'APP_KEY', 'x'))->toBe('[redacted]');
+    expect(valueOf($page->getViewData()['info'], 'APP_KEY'))->toBe('[redacted]');
 });

@@ -22,13 +22,13 @@
 
                                 <x-filament-tables::cell class="whitespace-normal" style="overflow-wrap: anywhere">
                                     <div class="filament-tables-column-wrapper px-4 py-3">
-                                        {{ $redactor->apply($module->name(), $config->name(), $config->localValue()) }}
+                                        {{ $config->localValue() }}
                                     </div>
                                 </x-filament-tables::cell>
 
                                 <x-filament-tables::cell class="whitespace-normal" style="overflow-wrap: anywhere">
                                     <div class="filament-tables-column-wrapper px-4 py-3">
-                                        {{ $redactor->apply($module->name(), $config->name(), $config->masterValue()) }}
+                                        {{ $config->masterValue() }}
                                     </div>
                                 </x-filament-tables::cell>
                             </x-filament-tables::row>
@@ -42,7 +42,7 @@
 
                                 <x-filament-tables::cell class="whitespace-normal" style="overflow-wrap: anywhere">
                                     <div class="filament-tables-column-wrapper px-4 py-3">
-                                        {{ $redactor->apply($module->name(), $config->name(), $config->localValue()) }}
+                                        {{ $config->localValue() }}
                                     </div>
                                 </x-filament-tables::cell>
                             </x-filament-tables::row>

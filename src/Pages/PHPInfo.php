@@ -21,11 +21,14 @@ class PHPInfo extends Page
         return 'filament-phpinfo::phpinfo';
     }
 
+    /**
+     * Redaction happens here, before any view sees the capture, so a published view needs
+     * nothing to stay safe.
+     */
     public function getViewData(): array
     {
         return [
-            'info' => $this->getInfo(),
-            'redactor' => $this->getRedactor(),
+            'info' => $this->getRedactor()->apply($this->getInfo()),
         ];
     }
 
@@ -34,24 +37,13 @@ class PHPInfo extends Page
         return $this->info ??= InfoWrapper\Info::capture();
     }
 
-    /**
-     * The plugin carries whatever the panel configured fluently. Fall back to config alone, for a
-     * panel that registers the page without the plugin.
-     */
     protected function getRedactor(): Redactor
     {
-        // The page can be instantiated with no panel resolved, so ask the container first.
+        // The page can be built with no panel resolved, so ask the container first.
         $panel = app()->bound('filament') ? Filament::getCurrentPanel() : null;
+        $plugin = $panel?->hasPlugin('filament-phpinfo') ? $panel->getPlugin('filament-phpinfo') : null;
 
-        if ($panel?->hasPlugin('filament-phpinfo')) {
-            $plugin = $panel->getPlugin('filament-phpinfo');
-
-            if ($plugin instanceof FilamentPHPInfoPlugin) {
-                return $plugin->redactor();
-            }
-        }
-
-        return Redactor::fromConfig();
+        return $plugin instanceof FilamentPHPInfoPlugin ? $plugin->getRedactor() : Redactor::make();
     }
 
     public static function getDefaultSlug(): string

@@ -2,167 +2,130 @@
 
 use STS\FilamentPHPInfo\Redactor;
 use STS\Phpinfo\Info;
+use STS\Phpinfo\Models\Config;
+use STS\Phpinfo\Models\Group;
+use STS\Phpinfo\Models\Module;
+use STS\Phpinfo\PhpInfo;
 
-it('replaces the value of a secret environment variable', function () {
-    expect(Redactor::make()->apply('Environment', 'APP_KEY', 'base64:abc'))->toBe('[redacted]');
+it('redacts secret environment variables out of the box, in every row form', function () {
+    $info = Redactor::make()->apply(fixture([
+        'Environment' => ['APP_KEY' => 'base64:abc', 'APP_ENV' => 'production'],
+        'PHP Variables' => ["\$_ENV['APP_KEY']" => 'base64:abc', "\$_SERVER['APP_KEY']" => 'base64:abc'],
+    ]));
+
+    expect(valueOf($info, 'APP_KEY'))->toBe('[redacted]')
+        ->and(valueOf($info, "\$_ENV['APP_KEY']"))->toBe('[redacted]')
+        ->and(valueOf($info, "\$_SERVER['APP_KEY']"))->toBe('[redacted]')
+        ->and(valueOf($info, 'APP_ENV'))->toBe('production');
 });
 
-it('redacts every row form phpinfo prints for one variable', function ($module, $name) {
-    expect(Redactor::make()->shouldRedact($module, $name))->toBeTrue();
-})->with([
-    ['Environment', 'APP_KEY'],
-    ['PHP Variables', "\$_ENV['APP_KEY']"],
-    ['PHP Variables', '$_SERVER["APP_KEY"]'],
-    ['PHP Variables', "\$_COOKIE['XSRF-TOKEN']"],
-]);
-
-it('redacts on every default term', function ($name) {
+it('redacts on every built-in term', function (string $name) {
     expect(Redactor::make()->shouldRedact('Environment', $name))->toBeTrue();
 })->with([
-    'DB_PASSWORD',
-    'APP_KEY',
-    'STRIPE_SECRET',
-    'NIGHTWATCH_TOKEN',
-    'GOOGLE_APPLICATION_CREDENTIALS',
-    'OAUTH_PRIVATE_KEY',
-    'JWT_SIGNING_SALT',
-    'JWT_RECIPIENT_SIGNATURE',
-    'SENTRY_DSN',
-    'NOVA_LICENSE_KEY',
-    'SLACK_WEBHOOK',
+    'DB_PASSWORD', 'APP_KEY', 'STRIPE_SECRET', 'NIGHTWATCH_TOKEN', 'GOOGLE_APPLICATION_CREDENTIALS',
+    'OAUTH_PRIVATE_KEY', 'JWT_SIGNING_SALT', 'JWT_RECIPIENT_SIGNATURE', 'SENTRY_DSN', 'NOVA_LICENSE_KEY',
+    'SLACK_WEBHOOK', 'db_password',
 ]);
 
-it('keeps ordinary environment variables', function ($name) {
-    expect(Redactor::make()->apply('Environment', $name, 'kept'))->toBe('kept');
-})->with(['APP_ENV', 'DB_HOST', 'MAIL_FROM_ADDRESS', 'AWS_DEFAULT_REGION', 'PATH']);
+it('leaves PHP settings alone even when their name matches a term', function () {
+    $info = Redactor::make()->apply(fixture([
+        'Zend OPcache' => ['Max keys' => '7963', 'Hash keys restarts' => '0'],
+        'tokenizer' => ['Tokenizer Support' => 'enabled'],
+        'Core' => ['highlight.keyword' => '#007700'],
+    ]));
 
-it('keeps php settings whose name matches a term', function ($module, $name) {
-    expect(Redactor::make()->apply($module, $name, 'kept'))->toBe('kept');
-})->with([
-    ['Zend OPcache', 'Max keys'],
-    ['Zend OPcache', 'Cached keys'],
-    ['Zend OPcache', 'Hash keys restarts'],
-    ['tokenizer', 'Tokenizer Support'],
-    ['Core', 'highlight.keyword'],
-]);
-
-it('leaves an unset variable alone, so the page still shows it is empty', function ($value) {
-    expect(Redactor::make()->apply('Environment', 'APP_KEY', $value))->toBe($value);
-})->with([null, '']);
-
-it('redacts a name you list, even outside the environment sections', function () {
-    $redactor = Redactor::make()->redact('Max keys');
-
-    expect($redactor->apply('Zend OPcache', 'Max keys', 'kept'))->toBe('[redacted]');
+    expect(valueOf($info, 'Max keys'))->toBe('7963')
+        ->and(valueOf($info, 'Hash keys restarts'))->toBe('0')
+        ->and(valueOf($info, 'Tokenizer Support'))->toBe('enabled')
+        ->and(valueOf($info, 'highlight.keyword'))->toBe('#007700');
 });
 
-it('matches a listed name case-insensitively and in any row form', function ($listed, $row) {
-    expect(Redactor::make()->redact($listed)->shouldRedact('Environment', $row))->toBeTrue();
+it('leaves an empty value alone, so the page still shows it is unset', function () {
+    $info = Redactor::make()->apply(fixture(['Environment' => ['APP_KEY' => '']]));
+
+    expect(valueOf($info, 'APP_KEY'))->toBe('');
+});
+
+it('redacts names you add, anywhere on the page', function () {
+    $info = Redactor::make()->redact('SESSION_FINGERPRINT', 'max keys')->apply(fixture([
+        'Environment' => ['SESSION_FINGERPRINT' => 'abc'],
+        'Zend OPcache' => ['Max keys' => '7963'],
+    ]));
+
+    expect(valueOf($info, 'SESSION_FINGERPRINT'))->toBe('[redacted]')
+        ->and(valueOf($info, 'Max keys'))->toBe('[redacted]');
+});
+
+it('accepts wildcards', function () {
+    $redactor = Redactor::make()->redact('TENANT_*');
+
+    expect($redactor->shouldRedact('Environment', 'TENANT_ID'))->toBeTrue()
+        ->and($redactor->shouldRedact('Environment', 'MY_TENANT_ID'))->toBeFalse();
+});
+
+it('matches a name you add in any row form', function (string $added, string $row) {
+    expect(Redactor::make()->redact($added)->shouldRedact('PHP Variables', $row))->toBeTrue();
 })->with([
     ['tenant_id', 'TENANT_ID'],
-    ['TENANT_ID', 'tenant_id'],
     ["\$_ENV['TENANT_ID']", 'TENANT_ID'],
     ['TENANT_ID', "\$_SERVER['TENANT_ID']"],
 ]);
 
-it('adds terms without dropping the defaults', function () {
-    $redactor = Redactor::make()->redactContaining('tenant');
+it('reveals the names you choose, over every other rule', function () {
+    $info = Redactor::make()->redact('STRIPE_*')->reveal('STRIPE_KEY')->apply(fixture([
+        'Environment' => ['STRIPE_KEY' => 'pk_test_1', 'STRIPE_SECRET' => 'sk_test_1'],
+    ]));
 
-    expect($redactor->shouldRedact('Environment', 'TENANT_ID'))->toBeTrue()
-        ->and($redactor->shouldRedact('Environment', 'APP_KEY'))->toBeTrue();
-});
-
-it('reveals a name you list, beating every other rule', function () {
-    $redactor = Redactor::make()->redact('APP_KEY')->reveal('APP_KEY');
-
-    expect($redactor->apply('Environment', 'APP_KEY', 'kept'))->toBe('kept');
-});
-
-it('reveals a variable that only looks like a secret', function () {
-    $redactor = Redactor::make()->reveal('AWS_ACCESS_KEY_ID');
-
-    expect($redactor->apply('Environment', 'AWS_ACCESS_KEY_ID', 'AKIA123'))->toBe('AKIA123')
-        ->and($redactor->apply('Environment', 'AWS_SECRET_ACCESS_KEY', 'shh'))->toBe('[redacted]');
+    expect(valueOf($info, 'STRIPE_KEY'))->toBe('pk_test_1')
+        ->and(valueOf($info, 'STRIPE_SECRET'))->toBe('[redacted]');
 });
 
 it('takes a custom placeholder', function () {
-    expect(Redactor::make()->placeholder('***')->apply('Environment', 'APP_KEY', 'x'))->toBe('***');
+    $info = Redactor::make()->placeholder('***')->apply(fixture(['Environment' => ['APP_KEY' => 'x']]));
+
+    expect(valueOf($info, 'APP_KEY'))->toBe('***');
 });
 
 it('can be turned off', function () {
-    expect(Redactor::make()->disable()->apply('Environment', 'APP_KEY', 'x'))->toBe('x');
+    $info = Redactor::make()->disable()->apply(fixture(['Environment' => ['APP_KEY' => 'x']]));
+
+    expect(valueOf($info, 'APP_KEY'))->toBe('x');
 });
 
-it('reads every setting from config', function () {
-    config()->set('filament-phpinfo.redact', [
-        'terms' => ['tenant'],
-        'always' => ['SESSION_FINGERPRINT'],
-        'never' => ['TENANT_REGION'],
-        'placeholder' => '***',
-        'enabled' => true,
-    ]);
+it('keeps the headings, names, notes and master values the view relies on', function () {
+    $info = new PhpInfo('8.4.0', items([
+        new Module('Core', items([
+            new Group(items([new Config('memory_limit', '256M', '128M', true)]), items(['Directive', 'Local Value', 'Master Value']), 'Settings', 'A note'),
+        ])),
+    ]));
 
-    $redactor = Redactor::fromConfig();
+    $group = Redactor::make()->apply($info)->module('Core')->groups()->first();
+    $config = $group->configs()->first();
 
-    expect($redactor->apply('Environment', 'TENANT_ID', 'x'))->toBe('***')
-        ->and($redactor->apply('Environment', 'TENANT_REGION', 'us-east-2'))->toBe('us-east-2')
-        ->and($redactor->apply('Core', 'SESSION_FINGERPRINT', 'x'))->toBe('***')
-        ->and($redactor->apply('Environment', 'APP_KEY', 'x'))->toBe('x');
+    expect($group->headings()->all())->toBe(['Directive', 'Local Value', 'Master Value'])
+        ->and($group->name())->toBe('Settings')
+        ->and($group->note())->toBe('A note')
+        ->and($config->masterValue())->toBe('128M');
 });
 
-it('survives a config file that predates these keys', function () {
-    config()->set('filament-phpinfo.redact', ['placeholder' => '***']);
+it('changes nothing outside the environment sections of a real capture', function () {
+    $values = fn (PhpInfo $info) => $info->modules()
+        ->filter(fn (Module $module) => ! in_array($module->name(), Redactor::ENVIRONMENT_MODULES, true))
+        ->flatMap(fn (Module $module) => $module->configs())
+        ->map(fn (Config $config) => $config->name().'='.$config->localValue().'|'.$config->masterValue())
+        ->all();
 
-    expect(Redactor::fromConfig()->apply('Environment', 'APP_KEY', 'x'))->toBe('***');
-});
+    $raw = Info::capture();
 
-it('honours the 1.2.x config keys', function () {
-    config()->set('filament-phpinfo.redact', null);
-    config()->set('filament-phpinfo.redact-patterns', ['tenant']);
-    config()->set('filament-phpinfo.redact-placeholder', '***');
-
-    $redactor = Redactor::fromConfig();
-
-    expect($redactor->apply('Environment', 'TENANT_ID', 'x'))->toBe('***')
-        ->and($redactor->apply('Environment', 'APP_KEY', 'x'))->toBe('x');
-});
-
-it('redacts nothing outside the environment sections of a real capture', function () {
-    $redactor = Redactor::make();
-    $redacted = [];
-
-    foreach (Info::capture()->modules() as $module) {
-        if (in_array($module->name(), Redactor::ENVIRONMENT_MODULES, true)) {
-            continue;
-        }
-
-        foreach ($module->configs() as $config) {
-            if ($redactor->shouldRedact($module->name(), $config->name())) {
-                $redacted[] = $module->name().' / '.$config->name();
-            }
-        }
-    }
-
-    expect($redacted)->toBeEmpty();
+    expect($values(Redactor::make()->apply($raw)))->toBe($values($raw));
 });
 
 it('redacts a secret in a real capture', function () {
     putenv('FILAMENT_PHPINFO_TEST_SECRET=must-not-render');
 
-    $redactor = Redactor::make();
-    $seen = [];
-
-    foreach (Info::capture()->modules() as $module) {
-        foreach ($module->configs() as $config) {
-            if (str_contains($config->name(), 'FILAMENT_PHPINFO_TEST_SECRET')) {
-                $seen[] = $config->name();
-                expect($redactor->apply($module->name(), $config->name(), $config->localValue()))
-                    ->toBe('[redacted]');
-            }
-        }
-    }
+    $info = Redactor::make()->apply(Info::capture());
 
     putenv('FILAMENT_PHPINFO_TEST_SECRET');
 
-    expect($seen)->not->toBeEmpty();
+    expect(valueOf($info, 'FILAMENT_PHPINFO_TEST_SECRET'))->toBe('[redacted]');
 });

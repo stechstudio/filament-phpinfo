@@ -2,47 +2,38 @@
 
 namespace STS\FilamentPHPInfo;
 
+use Illuminate\Support\Str;
+use STS\Phpinfo\Models\Config;
+use STS\Phpinfo\Models\Group;
+use STS\Phpinfo\Models\Module;
+use STS\Phpinfo\PhpInfo;
+
 class Redactor
 {
     /**
      * An environment variable whose name contains one of these is redacted.
      */
-    public const DEFAULT_TERMS = [
-        'password',
-        'key',
-        'secret',
-        'token',
-        'credential',
-        'private',
-        'salt',
-        'signing',
-        'signature',
-        'dsn',
-        'license',
-        'webhook',
+    public const TERMS = [
+        'PASSWORD', 'KEY', 'SECRET', 'TOKEN', 'CREDENTIAL', 'PRIVATE',
+        'SALT', 'SIGNING', 'SIGNATURE', 'DSN', 'LICENSE', 'WEBHOOK',
     ];
 
-    public const DEFAULT_PLACEHOLDER = '[redacted]';
-
     /**
-     * phpinfo() prints the process environment under these two headings, and nowhere else. Term
-     * matching is limited to them, so PHP settings named "Max keys", "Cached keys" or "Tokenizer
-     * Support" keep their values. Names you list yourself are redacted wherever they appear.
+     * phpinfo() prints the process environment under these two headings and nowhere else. The
+     * terms apply only here, so PHP settings named "Max keys" or "Tokenizer Support" keep their
+     * values. Names passed to redact() and reveal() apply everywhere.
      */
     public const ENVIRONMENT_MODULES = ['Environment', 'PHP Variables'];
 
     protected bool $enabled = true;
 
-    protected string $placeholder = self::DEFAULT_PLACEHOLDER;
+    protected string $placeholder = '[redacted]';
 
     /** @var array<int, string> */
-    protected array $terms = self::DEFAULT_TERMS;
+    protected array $redact = [];
 
     /** @var array<int, string> */
-    protected array $always = [];
-
-    /** @var array<int, string> */
-    protected array $never = [];
+    protected array $reveal = [];
 
     public static function make(): static
     {
@@ -50,61 +41,21 @@ class Redactor
     }
 
     /**
-     * Build from config/filament-phpinfo.php. Every key is optional, so a config file published
-     * before these keys existed still gets the defaults.
-     */
-    public static function fromConfig(): static
-    {
-        $config = config('filament-phpinfo.redact', []);
-
-        // 1.2.x used three flat keys. Honour them when the new ones are absent, so upgrading
-        // does not silently drop a term a consumer added and start printing that value again.
-        $terms = $config['terms'] ?? config('filament-phpinfo.redact-patterns') ?? static::DEFAULT_TERMS;
-        $placeholder = $config['placeholder'] ?? config('filament-phpinfo.redact-placeholder') ?? static::DEFAULT_PLACEHOLDER;
-        $enabled = $config['enabled'] ?? config('filament-phpinfo.redact-environment') ?? true;
-
-        return static::make()
-            ->placeholder($placeholder)
-            ->setTerms($terms)
-            ->redact(...($config['always'] ?? []))
-            ->reveal(...($config['never'] ?? []))
-            ->enabled((bool) $enabled);
-    }
-
-    /**
-     * Always redact these variables, wherever they appear. Names are exact and case-insensitive,
-     * and you may write APP_KEY or $_ENV['APP_KEY'] — both match the same variable.
+     * Redact these too, wherever they appear. Exact names or * wildcards.
      */
     public function redact(string ...$names): static
     {
-        foreach ($names as $name) {
-            $this->always[] = static::normalize($name);
-        }
+        $this->redact = [...$this->redact, ...array_map(static::normalize(...), $names)];
 
         return $this;
     }
 
     /**
-     * Redact environment variables whose name contains any of these. Adds to the defaults rather
-     * than replacing them.
-     */
-    public function redactContaining(string ...$terms): static
-    {
-        foreach ($terms as $term) {
-            $this->terms[] = $term;
-        }
-
-        return $this;
-    }
-
-    /**
-     * Never redact these variables, whatever else matches. Wins over every other rule.
+     * Always show these, whatever else matches. Exact names or * wildcards.
      */
     public function reveal(string ...$names): static
     {
-        foreach ($names as $name) {
-            $this->never[] = static::normalize($name);
-        }
+        $this->reveal = [...$this->reveal, ...array_map(static::normalize(...), $names)];
 
         return $this;
     }
@@ -116,90 +67,79 @@ class Redactor
         return $this;
     }
 
-    /**
-     * Replace the default terms outright. Prefer redactContaining() unless you mean to drop them.
-     *
-     * @param  array<int, string>  $terms
-     */
-    public function setTerms(array $terms): static
-    {
-        $this->terms = array_values($terms);
-
-        return $this;
-    }
-
-    public function enabled(bool $enabled = true): static
-    {
-        $this->enabled = $enabled;
-
-        return $this;
-    }
-
     public function disable(): static
     {
-        return $this->enabled(false);
+        $this->enabled = false;
+
+        return $this;
     }
 
-    public function isEnabled(): bool
-    {
-        return $this->enabled;
-    }
-
-    public function getPlaceholder(): string
-    {
-        return $this->placeholder;
-    }
-
-    public function shouldRedact(?string $module, string $name): bool
+    public function apply(PhpInfo $info): PhpInfo
     {
         if (! $this->enabled) {
-            return false;
+            return $info;
         }
 
+        return new PhpInfo($info->version(), $info->modules()->map(
+            fn (Module $module) => new Module($module->name(), $module->groups()->map(
+                fn (Group $group) => new Group(
+                    $group->configs()->map(fn (Config $config) => $this->redactConfig($module, $config)),
+                    $group->headings(),
+                    $group->name(),
+                    $group->note(),
+                ),
+            )),
+        ));
+    }
+
+    public function shouldRedact(string $module, string $name): bool
+    {
         $variable = static::normalize($name);
 
-        if (in_array($variable, $this->never, true)) {
+        if (Str::is($this->reveal, $variable)) {
             return false;
         }
 
-        if (in_array($variable, $this->always, true)) {
+        if (Str::is($this->redact, $variable)) {
             return true;
         }
 
-        if (! in_array($module, static::ENVIRONMENT_MODULES, true)) {
-            return false;
-        }
-
-        foreach ($this->terms as $term) {
-            if ($term !== '' && str_contains($variable, strtoupper($term))) {
-                return true;
-            }
-        }
-
-        return false;
+        return in_array($module, static::ENVIRONMENT_MODULES, true)
+            && Str::contains($variable, static::TERMS);
     }
 
-    public function apply(?string $module, string $name, ?string $value): ?string
+    protected function redactConfig(Module $module, Config $config): Config
     {
-        // An unset or empty variable leaks nothing. Leave it, so the page keeps showing which
-        // variables carry a value and which do not.
-        if ($value === null || $value === '') {
-            return $value;
+        if (! $this->shouldRedact($module->name(), $config->name())) {
+            return $config;
         }
 
-        return $this->shouldRedact($module, $name) ? $this->placeholder : $value;
+        return new Config(
+            $config->name(),
+            $this->mask($config->localValue()),
+            $this->mask($config->masterValue()),
+            $config->hasMasterValue(),
+        );
     }
 
     /**
-     * phpinfo() prints the same variable as APP_KEY under Environment and as $_ENV['APP_KEY'] and
-     * $_SERVER['APP_KEY'] under PHP Variables. Reduce every form to the bare name.
+     * An empty value leaks nothing. Leave it, so the page still shows the variable is unset.
+     */
+    protected function mask(?string $value): ?string
+    {
+        return $value === null || $value === '' ? $value : $this->placeholder;
+    }
+
+    /**
+     * phpinfo() prints one variable as APP_KEY, $_ENV['APP_KEY'] and $_SERVER['APP_KEY'].
+     * Reduce every form to APP_KEY, and ignore case.
      */
     protected static function normalize(string $name): string
     {
         $name = trim($name);
 
-        if (preg_match('/^\$?_?([A-Z]+)\[[\'"]?(.*?)[\'"]?\]$/', $name, $matches)) {
-            $name = $matches[2];
+        if (preg_match('/^\$_[A-Z]+\[[\'"]?(.*?)[\'"]?\]$/', $name, $matches)) {
+            $name = $matches[1];
         }
 
         return strtoupper($name);
