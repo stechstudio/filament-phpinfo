@@ -38,3 +38,15 @@ it('returns the correct view', function () {
     };
     expect($page->exposeGetView())->toBe('filament-phpinfo::phpinfo');
 });
+
+it('hands the view a capture that is already redacted', function () {
+    $page = new class extends PHPInfo
+    {
+        protected function getInfo(): mixed
+        {
+            return fixture(['Environment' => ['APP_KEY' => 'base64:abc']]);
+        }
+    };
+
+    expect(valueOf($page->getViewData()['info'], 'APP_KEY'))->toBe('[redacted]');
+});

@@ -8,7 +8,7 @@ This package adds a new page to the Filament admin panel that displays the outpu
 
 | Version | PHP | Laravel | Filament |
 |---------|-----|---------|----------|
-| 1.2     | 8.3+ | 11, 12, 13 | 3, 4, 5 |
+| 1.3     | 8.3+ | 11, 12, 13 | 3, 4, 5 |
 
 ## Installation
 ```bash
@@ -25,34 +25,51 @@ $panel
 
 ## Secrets
 
-`phpinfo()` prints the whole process environment three times: once under `Environment` as
-`APP_KEY`, and twice under `PHP Variables` as `$_ENV['APP_KEY']` and `$_SERVER['APP_KEY']`. On a
-Laravel app that puts the encryption key, the database password and every third-party credential
-on one page.
+`phpinfo()` prints the whole process environment. On a Laravel app that means the encryption key,
+the database password and every third-party credential, three times over.
 
-This package replaces those values with `[redacted]` by default. It keeps the row, so the page
-still tells you which variables are set. Matching applies only to the two environment modules, so
-PHP settings such as `Max keys` and `Tokenizer Support` keep their values.
+This package redacts them before the page renders, so there is nothing to set up. An environment
+variable is redacted when its name contains `password`, `key`, `secret`, `token`, `credential`,
+`private`, `salt`, `signing`, `signature`, `dsn`, `license` or `webhook`. The row stays, so you can
+still see which variables are set.
 
-The page is still worth gating to your most trusted users. Redaction removes the credentials, not
-the rest of the host's configuration.
+Only the environment is matched. PHP settings such as `Max keys` or `Tokenizer Support` keep their
+values.
+
+To adjust it:
+
+```php
+FilamentPHPInfoPlugin::make()
+    ->redact('INTERNAL_*')   // redact these too
+    ->reveal('STRIPE_KEY')   // always show these
+```
+
+Both take exact names or `*` wildcards, ignore case, and apply anywhere on the page.
+`->placeholder('***')` changes what a redacted value shows, and `->withoutRedaction()` turns it off.
+
+Redaction happens before the view receives the data, so a published view is covered too.
+
+### Upgrading from v1.2.1
+
+v1.2.1 configured redaction through the config file and a `Redaction` class. Both are gone.
+
+- If you published the config file, delete its `redact-environment`, `redact-patterns` and
+  `redact-placeholder` keys. They reference `Redaction`, so leaving them stops the app from booting.
+- If you published the view, republish it or delete it. The v1.2.1 view calls `Redaction::value()`.
 
 ## Configuration
-The navigation group, icon, and secret redaction are configurable.
+The navigation group and icon are configurable.
 
 Publish the `filament-phpinfo` config file with:
 ```bash
 php artisan vendor:publish --tag=filament-phpinfo-config
 ```
 
-| Option                | Description                                                                                                          |
-|-----------------------|----------------------------------------------------------------------------------------------------------------------|
-| `navigation-group`    | The PHPInfo page's [navigation group](https://filamentphp.com/docs/3.x/panels/navigation#grouping-navigation-items). |
-| `navigation-icon`     | The PHPInfo page's icon. See Filament's [documentation](https://filamentphp.com/docs/3.x/support/icons) for values.  |
-| `page-slug`           | The PHPInfo page's URL slug.                                                                                        |
-| `redact-environment`  | Whether to replace the values of secret-bearing environment variables. Defaults to `true`.                          |
-| `redact-patterns`     | The strings that mark an environment variable name as secret-bearing. Matching ignores case.                        |
-| `redact-placeholder`  | What a redacted value shows instead. Defaults to `[redacted]`.                                                      |
+| Option             | Description                                                                                                          |
+|--------------------|----------------------------------------------------------------------------------------------------------------------|
+| `navigation-group` | The PHPInfo page's [navigation group](https://filamentphp.com/docs/3.x/panels/navigation#grouping-navigation-items). |
+| `navigation-icon`  | The PHPInfo page's icon. See Filament's [documentation](https://filamentphp.com/docs/3.x/support/icons) for values.  |
+| `page-slug`        | The PHPInfo page's URL slug.                                                                                        |
 
 | Screenshot |
 |---|
