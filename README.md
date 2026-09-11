@@ -8,7 +8,7 @@ This package adds a new page to the Filament admin panel that displays the outpu
 
 | Version | PHP | Laravel | Filament |
 |---------|-----|---------|----------|
-| 1.2     | 8.3+ | 11, 12, 13 | 3, 4, 5 |
+| 1.3     | 8.3+ | 11, 12, 13 | 3, 4, 5 |
 
 ## Installation
 ```bash
@@ -31,11 +31,61 @@ Laravel app that puts the encryption key, the database password and every third-
 on one page.
 
 This package replaces those values with `[redacted]` by default. It keeps the row, so the page
-still tells you which variables are set. Matching applies only to the two environment modules, so
-PHP settings such as `Max keys` and `Tokenizer Support` keep their values.
+still tells you which variables are set.
+
+An environment variable is redacted when its name contains any of `password`, `key`, `secret`,
+`token`, `credential`, `private`, `salt`, `signing`, `signature`, `dsn`, `license` or `webhook`.
+
+Term matching applies to the `Environment` and `PHP Variables` sections only, because those are the
+only two places `phpinfo()` prints the environment. PHP settings named `Max keys`, `Cached keys` or
+`Tokenizer Support` therefore keep their values.
 
 The page is still worth gating to your most trusted users. Redaction removes the credentials, not
 the rest of the host's configuration.
+
+### Adjusting it
+
+Four methods on the plugin cover everything:
+
+```php
+use STS\FilamentPHPInfo\FilamentPHPInfoPlugin;
+
+$panel->plugins([
+    FilamentPHPInfoPlugin::make()
+        ->redact('SESSION_FINGERPRINT', 'TENANT_ID')
+        ->redactContaining('tenant')
+        ->reveal('AWS_ACCESS_KEY_ID')
+        ->placeholder('***'),
+]);
+```
+
+| Method | What it does |
+|---|---|
+| `redact(...$names)` | Always redact these, wherever they appear on the page, including PHP settings. |
+| `redactContaining(...$terms)` | Redact environment variables containing these, **on top of** the defaults. |
+| `reveal(...$names)` | Never redact these. Wins over every other rule. |
+| `placeholder($text)` | What a redacted value shows instead. |
+| `withoutRedaction()` | Print every value, secrets included. |
+
+Names are exact and ignore case, and you may write either form: `redact('APP_KEY')` and
+`redact("\$_ENV['APP_KEY']")` match the same variable in all three rows.
+
+The same settings live in the config file, if you would rather keep them there:
+
+```php
+'redact' => [
+    'terms' => Redactor::DEFAULT_TERMS,
+    'always' => ['SESSION_FINGERPRINT'],
+    'never' => ['AWS_ACCESS_KEY_ID'],
+    'placeholder' => '[redacted]',
+    'enabled' => true,
+],
+```
+
+`terms` replaces the defaults outright. Use `redactContaining()` to add to them instead.
+
+> If you have published the view, republish it. A published view carries its own markup: one from
+> before v1.2.1 keeps printing every value, and one from v1.2.x calls a class this version removes.
 
 ## Configuration
 The navigation group, icon, and secret redaction are configurable.
@@ -45,14 +95,12 @@ Publish the `filament-phpinfo` config file with:
 php artisan vendor:publish --tag=filament-phpinfo-config
 ```
 
-| Option                | Description                                                                                                          |
-|-----------------------|----------------------------------------------------------------------------------------------------------------------|
-| `navigation-group`    | The PHPInfo page's [navigation group](https://filamentphp.com/docs/3.x/panels/navigation#grouping-navigation-items). |
-| `navigation-icon`     | The PHPInfo page's icon. See Filament's [documentation](https://filamentphp.com/docs/3.x/support/icons) for values.  |
-| `page-slug`           | The PHPInfo page's URL slug.                                                                                        |
-| `redact-environment`  | Whether to replace the values of secret-bearing environment variables. Defaults to `true`.                          |
-| `redact-patterns`     | The strings that mark an environment variable name as secret-bearing. Matching ignores case.                        |
-| `redact-placeholder`  | What a redacted value shows instead. Defaults to `[redacted]`.                                                      |
+| Option             | Description                                                                                                          |
+|--------------------|----------------------------------------------------------------------------------------------------------------------|
+| `navigation-group` | The PHPInfo page's [navigation group](https://filamentphp.com/docs/3.x/panels/navigation#grouping-navigation-items). |
+| `navigation-icon`  | The PHPInfo page's icon. See Filament's [documentation](https://filamentphp.com/docs/3.x/support/icons) for values.  |
+| `page-slug`        | The PHPInfo page's URL slug.                                                                                        |
+| `redact`           | Secret redaction. See [Secrets](#secrets).                                                                          |
 
 | Screenshot |
 |---|

@@ -2,7 +2,10 @@
 
 namespace STS\FilamentPHPInfo\Pages;
 
+use Filament\Facades\Filament;
 use Filament\Pages\Page;
+use STS\FilamentPHPInfo\FilamentPHPInfoPlugin;
+use STS\FilamentPHPInfo\Redactor;
 use STS\Phpinfo as InfoWrapper;
 
 class PHPInfo extends Page
@@ -22,12 +25,33 @@ class PHPInfo extends Page
     {
         return [
             'info' => $this->getInfo(),
+            'redactor' => $this->getRedactor(),
         ];
     }
 
     protected function getInfo(): mixed
     {
         return $this->info ??= InfoWrapper\Info::capture();
+    }
+
+    /**
+     * The plugin carries whatever the panel configured fluently. Fall back to config alone, for a
+     * panel that registers the page without the plugin.
+     */
+    protected function getRedactor(): Redactor
+    {
+        // The page can be instantiated with no panel resolved, so ask the container first.
+        $panel = app()->bound('filament') ? Filament::getCurrentPanel() : null;
+
+        if ($panel?->hasPlugin('filament-phpinfo')) {
+            $plugin = $panel->getPlugin('filament-phpinfo');
+
+            if ($plugin instanceof FilamentPHPInfoPlugin) {
+                return $plugin->redactor();
+            }
+        }
+
+        return Redactor::fromConfig();
     }
 
     public static function getDefaultSlug(): string

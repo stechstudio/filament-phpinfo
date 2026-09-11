@@ -38,3 +38,11 @@ it('returns the correct view', function () {
     };
     expect($page->exposeGetView())->toBe('filament-phpinfo::phpinfo');
 });
+
+it('hands the view a capture and a redactor', function () {
+    $data = (new PHPInfo)->getViewData();
+
+    expect($data)->toHaveKeys(['info', 'redactor'])
+        ->and($data['redactor'])->toBeInstanceOf(STS\FilamentPHPInfo\Redactor::class)
+        ->and($data['redactor']->apply('Environment', 'APP_KEY', 'x'))->toBe('[redacted]');
+});

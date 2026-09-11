@@ -1,5 +1,3 @@
-@use(STS\FilamentPHPInfo\Redaction)
-
 <x-filament-panels::page>
     @foreach ($info->modules() as $module)
         <x-filament::section :heading="$module->name()" collapsible>
@@ -24,13 +22,13 @@
 
                                 <x-filament-tables::cell class="whitespace-normal" style="overflow-wrap: anywhere">
                                     <div class="filament-tables-column-wrapper px-4 py-3">
-                                        {{ Redaction::value($module->name(), $config->name(), $config->localValue()) }}
+                                        {{ $redactor->apply($module->name(), $config->name(), $config->localValue()) }}
                                     </div>
                                 </x-filament-tables::cell>
 
                                 <x-filament-tables::cell class="whitespace-normal" style="overflow-wrap: anywhere">
                                     <div class="filament-tables-column-wrapper px-4 py-3">
-                                        {{ Redaction::value($module->name(), $config->name(), $config->masterValue()) }}
+                                        {{ $redactor->apply($module->name(), $config->name(), $config->masterValue()) }}
                                     </div>
                                 </x-filament-tables::cell>
                             </x-filament-tables::row>
@@ -44,7 +42,7 @@
 
                                 <x-filament-tables::cell class="whitespace-normal" style="overflow-wrap: anywhere">
                                     <div class="filament-tables-column-wrapper px-4 py-3">
-                                        {{ Redaction::value($module->name(), $config->name(), $config->localValue()) }}
+                                        {{ $redactor->apply($module->name(), $config->name(), $config->localValue()) }}
                                     </div>
                                 </x-filament-tables::cell>
                             </x-filament-tables::row>
